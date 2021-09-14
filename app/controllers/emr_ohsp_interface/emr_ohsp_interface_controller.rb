@@ -1,4 +1,4 @@
-class EmrOHSPInterface::EmrOHSPInterfaceController < ::ApplicationController
+class EmrOhspInterface::EmrOhspInterfaceController < ::ApplicationController
     def weeks_generator
         render json: service.weeks_generator();
     end   
@@ -7,6 +7,6 @@ class EmrOHSPInterface::EmrOHSPInterfaceController < ::ApplicationController
     end
    
     def service
-        EmrOHSPInterface::EmrOHSPInterfaceService
+        EmrOhspInterface::EmrOhspInterfaceService
     end
 end

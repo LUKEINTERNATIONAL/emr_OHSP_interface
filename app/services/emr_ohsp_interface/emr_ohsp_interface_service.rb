@@ -1,7 +1,7 @@
-require "emr_OHSP_interface/version"
+require "emr_ohsp_interface/version"
 
-module EmrOHSPInterface
-  module EmrOHSPInterfaceService
+module EmrOhspInterface
+  module EmrOhspInterfaceService
     class << self
       require 'csv'
       require 'rest-client'
