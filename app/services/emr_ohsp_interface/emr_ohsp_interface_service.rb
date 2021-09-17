@@ -52,7 +52,7 @@ module EmrOhspInterface
         data_set_id = data.first["Data Set ID"]
       end
 
-      def generate_weekly_idsr_report()
+      def generate_weekly_idsr_report(request=nil)
 
         diag_map = settings["weekly_idsr_map"]
 
@@ -89,11 +89,92 @@ module EmrOhspInterface
 
           collection[key] = options
         end
-
-        response = send_data(collection,"weekly")
+          if request == nil
+           response = send_data(collection,"weekly")
+          end
+        return collection
       end
+      #idsr monthly report
 
       def generate_monthly_idsr_report()
+        diag_map = settings["monthly_idsr_map"]
+        epi_month = months_generator.first.first.strip
+        start_date = months_generator.first.last[1].split("to").first.strip
+        end_date =  months_generator.first.last[1].split("to").last.strip
+        type = EncounterType.find_by_name 'Outpatient diagnosis'
+        collection = {}
+
+        special_indicators = ["Malaria in Pregnancy","HIV New Initiated on ART"]
+
+        diag_map.each do |key,value|
+          options = {"<5yrs"=>nil,">=5yrs"=>nil}
+          concept_ids = ConceptName.where(name: value).collect{|cn| cn.concept_id}
+          if !special_indicators.include?(key)
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*')
+
+              #under_five
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5}.\
+                          collect{|record| record.person_id}
+              options["<5yrs"] = under_five
+              #above 5 years
+              over_five = data.select{|record| calculate_age(record["birthdate"]) >=5 }.\
+                          collect{|record| record.person_id}
+
+              options[">=5yrs"] =  over_five
+
+              collection[key] = options
+          else
+            if key.eql?("Malaria in Pregnancy")
+              mal_patient_id = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*').collect{|record| record.person}
+              #find those that are pregnant
+              preg = Observation.where(["concept_id = 6131 AND obs_datetime
+                                         BETWEEN ? AND ? AND person_id IN(?)
+                                          AND value_coded =1065",
+                                          start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+                                          end_date.to_date.strftime('%Y-%m-%d 23:59:59'),mal_patient_id ])
+
+               options[">=5yrs"] =   preg.collect{|record| record.person_id} rescue 0
+               collection[key] = options
+            end
+
+            if key.eql?("HIV New Initiated on ART")
+             data =  ActiveRecord::Base.connection.select_all(
+                        "SELECT * FROM temp_earliest_start_date
+                            WHERE date_enrolled BETWEEN '#{start_date}' AND '#{end_date}'
+                            AND date_enrolled = earliest_start_date
+                             GROUP BY patient_id" ).to_hash
+
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5 }.\
+                             collect{|record| record["patient_id"]}
+
+              over_five = data.select{|record| calculate_age(record["birthdate"]) >=5 }.\
+                             collect{|record| record["patient_id"]}
+
+              options["<5yrs"] = under_five
+              options[">=5yrs"] =  over_five
+
+              collection[key] = options
+            end
+          end
+        end
+          if request == nil
+           #response = send_data(collection,"monthly")
+          end
+        return collection
       end
 
       # helper menthod
