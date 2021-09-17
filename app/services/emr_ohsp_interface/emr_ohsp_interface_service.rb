@@ -23,13 +23,14 @@ module EmrOhspInterface
         result = []
         #["waoQ016uOz1", "r1AT49VBKqg", "FPN4D0s6K3m", "zE8k2BtValu"]
         #  ds,              de_id     ,  <5yrs       ,  >=5yrs
+        puts de
         if type == "weekly"
         file = File.open(Rails.root.join("db","idsr_metadata","idsr_weekly_ohsp_ids.csv"))
         else
         file = File.open(Rails.root.join("db","idsr_metadata","idsr_monthly_ohsp_ids.csv"))
         end
         data = CSV.parse(file,headers: true)
-        row = data.select{|row| row["Data Element Name"].strip.downcase.eql?(de.downcase)}
+        row = data.select{|row| row["Data Element Name"].strip.downcase.eql?(de.downcase.strip)}
         ohsp_ds_id = row[0]["Data Set ID"]
         result << ohsp_ds_id
         ohsp_de_id = row[0]["UID"]
@@ -52,13 +53,13 @@ module EmrOhspInterface
         data_set_id = data.first["Data Set ID"]
       end
 
-      def generate_weekly_idsr_report(request=nil)
+      def generate_weekly_idsr_report(request=nil,start_date=nil,end_date=nil)
 
         diag_map = settings["weekly_idsr_map"]
 
         epi_week = weeks_generator.last.first.strip
-        start_date = weeks_generator.last.last.split("to")[0].strip
-        end_date = weeks_generator.last.last.split("to")[1].strip
+        start_date = weeks_generator.last.last.split("to")[0].strip if start_date.nil?
+        end_date = weeks_generator.last.last.split("to")[1].strip if end_date.nil?
 
         #pull the data
         type = EncounterType.find_by_name 'Outpatient diagnosis'
@@ -96,11 +97,11 @@ module EmrOhspInterface
       end
       #idsr monthly report
 
-      def generate_monthly_idsr_report()
+      def generate_monthly_idsr_report(request=nil,start_date=nil,end_date=nil)
         diag_map = settings["monthly_idsr_map"]
         epi_month = months_generator.first.first.strip
-        start_date = months_generator.first.last[1].split("to").first.strip
-        end_date =  months_generator.first.last[1].split("to").last.strip
+        start_date = months_generator.first.last[1].split("to").first.strip if start_date.nil?
+        end_date =  months_generator.first.last[1].split("to").last.strip if end_date.nil?
         type = EncounterType.find_by_name 'Outpatient diagnosis'
         collection = {}
 
@@ -139,7 +140,9 @@ module EmrOhspInterface
               end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
               joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
               INNER JOIN person p ON p.person_id = encounter.patient_id').\
-              select('encounter.encounter_type, obs.value_coded, p.*').collect{|record| record.person}
+              select('encounter.encounter_type, obs.value_coded, p.*')
+
+              mal_patient_id=   mal_patient_id.collect{|record| record.person_id}
               #find those that are pregnant
               preg = Observation.where(["concept_id = 6131 AND obs_datetime
                                          BETWEEN ? AND ? AND person_id IN(?)
@@ -172,7 +175,7 @@ module EmrOhspInterface
           end
         end
           if request == nil
-           #response = send_data(collection,"monthly")
+           response = send_data(collection,"monthly")
           end
         return collection
       end
@@ -241,24 +244,56 @@ module EmrOhspInterface
           "orgUnit"=> get_ohsp_facility_id,
           "dataValues"=> []
         }
+         special = ["Severe Pneumonia in under 5 cases","Malaria in Pregnancy",
+                   "Underweight Newborns < 2500g in Under 5 Cases","Diarrhoea In Under 5"]
 
         data.each do |key,value|
-            option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
-                        "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
-                        "value"=>value["<5yrs"].size }
+          if !special.include?(key)
+              option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
+                          "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
+                          "value"=>value["<5yrs"].size }
 
-            option2 = {"dataElement"=>get_ohsp_de_ids(key,type)[1],
-                        "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[3],
-                        "value"=>value[">=5yrs"].size}
+              option2 = {"dataElement"=>get_ohsp_de_ids(key,type)[1],
+                          "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[3],
+                          "value"=>value[">=5yrs"].size}
 
-        #fill data values array
-          payload["dataValues"] << option1
-          payload["dataValues"] << option2
+            #fill data values array
+              payload["dataValues"] << option1
+              payload["dataValues"] << option2
+          else
+              case key
+                when special[0]
+                  option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
+                              "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
+                              "value"=>value["<5yrs"].size }
+
+                  payload["dataValues"] << option1
+                when special[1]
+                  option2 = {"dataElement"=>get_ohsp_de_ids(key,type)[1],
+                              "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[3],
+                              "value"=>value[">=5yrs"].size }
+
+                  payload["dataValues"] << option2
+                when special[2]
+                  option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
+                              "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
+                              "value"=>value["<5yrs"].size }
+
+                  payload["dataValues"] << option1
+                when special[3]
+                  option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
+                              "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
+                              "value"=>value["<5yrs"].size}
+
+                  payload["dataValues"] << option1
+              end
+          end
         end
 
-        puts "now sending these values: #{payload.to_s}"
+        puts "now sending these values: #{payload.to_json}"
         url = "#{conn["url"]}/api/dataValueSets"
         puts url
+        puts "pushing #{type} IDSR Reports"
         send = RestClient::Request.execute(method: :post,
                                             url: url,
                                             headers:{'Content-Type'=> 'application/json'},
