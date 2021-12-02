@@ -17,18 +17,23 @@ module EmrOhspInterface
       end
 
       def get_patient_number
-        query "SELECT COUNT(*) as 'patient_identify' FROM patients; "
+        get_patient_id = query "SELECT id FROM iblis.patients order by id desc limit 1;"
+
+        get_patient_id.each do |x|
+         return patient_number = x['id']
+        end
+        
+
+
       end
 
       def check_patient_number(patient_id)
-        patient_number = ''
           get_patient_id = query "SELECT patient_number FROM patients WHERE `external_patient_number` ='#{patient_id}'; "
 
           get_patient_id.each do |x|
-            patient_number = x['patient_number']
+            return patient_number = x['patient_number']
           end
 
-        patient_number
       end
 
       def filterpatient_number(data)
@@ -50,7 +55,7 @@ module EmrOhspInterface
         date = time.strftime('%Y-%m-%d %H:%M:%S')
         lab_details.map do |order_params|
           if patient_number.blank?
-            patient_number = filterpatient_number(get_patient_number) + 1
+            patient_number = get_patient_number() + 1
 
             person_data = Person.where('person_id= ?', order_params[:patient_id])[0]
             address_data = PersonAddress.where('person_id= ?', order_params[:patient_id])[0]
