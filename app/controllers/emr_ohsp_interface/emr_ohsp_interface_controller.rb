@@ -13,7 +13,7 @@ class EmrOhspInterface::EmrOhspInterfaceController < ::ApplicationController
     
     def generate_monthly_idsr_report
         render json: service.generate_monthly_idsr_report(params[:request],params[:start_date],params[:end_date]);
-    endgenerate_hmis_15_report
+    end
 
     def generate_hmis_15_report
         render json: service.generate_hmis_15_report(params[:request],params[:start_date],params[:end_date]);
