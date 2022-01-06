@@ -5,4 +5,5 @@ EmrOhspInterface::Engine.routes.draw do
     get '/get_months', to: 'emr_ohsp_interface#months_generator'
     get '/generate_weekly_idsr_report', to: 'emr_ohsp_interface#generate_weekly_idsr_report'
     get '/generate_monthly_idsr_report', to: 'emr_ohsp_interface#generate_monthly_idsr_report'
+    get '/generate_hmis_15_report', to: 'emr_ohsp_interface#generate_hmis_15_report'
 end
