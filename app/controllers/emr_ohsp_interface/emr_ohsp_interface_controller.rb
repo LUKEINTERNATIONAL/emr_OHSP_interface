@@ -16,7 +16,7 @@ class EmrOhspInterface::EmrOhspInterfaceController < ::ApplicationController
     end
 
     def generate_hmis_15_report
-        render json: service.generate_hmis_15_report(params[:request],params[:start_date],params[:end_date]);
+        render json: service.generate_hmis_15_report(params[:start_date],params[:end_date]);
     end
    
     def service
