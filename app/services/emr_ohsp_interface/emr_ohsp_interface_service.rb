@@ -105,7 +105,12 @@ module EmrOhspInterface
         type = EncounterType.find_by_name 'Outpatient diagnosis'
         collection = {}
 
-        special_indicators = ["Malaria in Pregnancy","HIV New Initiated on ART"]
+        special_indicators = ["Malaria in Pregnancy",
+                              "HIV New Initiated on ART",
+                              "Diarrhoea In Under 5",
+                              "Malnutrition In Under 5",
+                              "Underweight Newborns < 2500g in Under 5 Cases",
+                              "Severe Pneumonia in under 5 cases"]
 
         diag_map.each do |key,value|
           options = {"<5yrs"=>nil,">=5yrs"=>nil}
@@ -170,6 +175,76 @@ module EmrOhspInterface
               options["<5yrs"] = under_five
               options[">=5yrs"] =  over_five
 
+              collection[key] = options
+            end
+
+            if key.eql?("Diarrhoea In Under 5")
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*')
+
+              #under_five
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5}.\
+                          collect{|record| record.person_id}
+              options["<5yrs"] = under_five
+              collection[key] = options
+            end
+
+
+            if key.eql?("Malnutrition In Under 5")
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*')
+
+              #under_five
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5}.\
+                          collect{|record| record.person_id}
+              options["<5yrs"] = under_five
+              collection[key] = options
+            end
+
+
+            if key.eql?("Underweight Newborns < 2500g in Under 5 Cases")
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*')
+
+              #under_five
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5}.\
+                          collect{|record| record.person_id}
+              options["<5yrs"] = under_five
+              collection[key] = options
+            end
+
+            if key.eql?("Severe Pneumonia in under 5 cases")
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*')
+
+              #under_five
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5}.\
+                          collect{|record| record.person_id}
+              options["<5yrs"] = under_five
               collection[key] = options
             end
           end
