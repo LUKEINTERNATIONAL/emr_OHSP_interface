@@ -5,6 +5,7 @@ module EmrOhspInterface
     class << self
       require 'csv'
       require 'rest-client'
+      require 'json'
       def settings
         file = File.read(Rails.root.join("db","idsr_metadata","idsr_ohsp_settings.json"))
         config = JSON.parse(file)
@@ -93,10 +94,12 @@ module EmrOhspInterface
           if request == nil
            response = send_data(collection,"weekly")
           end
+          
+        generate_notifiable_disease_conditions_report()  
         return collection
       end
-      #idsr monthly report
 
+      #idsr monthly report
       def generate_monthly_idsr_report(request=nil,start_date=nil,end_date=nil)
         diag_map = settings["monthly_idsr_map"]
         epi_month = months_generator.first.first.strip
@@ -355,6 +358,47 @@ module EmrOhspInterface
          collection
       end
 
+      def generate_notifiable_disease_conditions_report(start_date=nil,end_date=nil)
+        diag_map = settings["notifiable_disease_conditions"]
+
+        start_date = Date.today.strftime("%Y-%m-%d") if start_date.nil?
+        end_date = Date.today.strftime("%Y-%m-%d") if end_date.nil?
+
+        type = EncounterType.find_by_name 'Outpatient diagnosis'
+        collection = {}
+        concept_name_for_sms_portal = {}
+
+        diag_map.each do |key,value|
+          options = {"<5yrs"=>nil,">=5yrs"=>nil}
+          concept_ids = ConceptName.where(name: value).collect{|cn| cn.concept_id}
+
+          data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+          AND encounter_type = ? AND value_coded IN (?)
+          AND concept_id IN(6543, 6542)',
+          start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+          end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+          joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+          INNER JOIN person p ON p.person_id = encounter.patient_id').\
+          select('encounter.encounter_type, obs.value_coded, p.*')
+
+          #under_five
+          under_five = data.select{|record| calculate_age(record["birthdate"]) < 5}.\
+                      collect{|record| record.person_id}
+          options["<5yrs"] = under_five
+          #above 5 years
+          over_five = data.select{|record| calculate_age(record["birthdate"]) >=5 }.\
+                      collect{|record| record.person_id}
+
+          options[">=5yrs"] =  over_five
+
+          collection[key] = options
+
+          concept_name_for_sms_portal[key] = concept_ids
+        end
+        send_data_to_sms_portal(collection, concept_name_for_sms_portal)
+        return collection
+      end
+
       # helper menthod
       def months_generator
           months = Hash.new
@@ -480,8 +524,41 @@ module EmrOhspInterface
         puts send
       end
 
+      def send_data_to_sms_portal(data, concept_name_collection)
+        data = data.select {|k,v| v.select {|kk,vv| vv.length > 0}.length > 0}
+        payload = {
+          "email"=> "admin@email.test",
+          "password" => "admin",
+          "emr_facility_id" => Location.current_health_center.id,
+          "emr_facility_name" => Location.current_health_center.name,
+          "payload" => data,
+          "concept_name_collection" => concept_name_collection
+        }
+      
+        url = "localhost:8186/submit"
+        puts url
+      
+        begin
+          response = RestClient::Request.execute(method: :post,
+            url: url,
+            headers:{'Content-Type'=> 'application/json'},
+            payload: payload.to_json
+          )
+        rescue RestClient::ExceptionWithResponse => res
+          if res.class == RestClient::Forbidden
+            puts "error: #{res.class}"
+          end
+        end
+      
+        if response.class != NilClass
+          if response.code == 200
+            puts "success: #{response}"
+          end
+        end
+        
+        end
+
     end
   end
-
 
 end
