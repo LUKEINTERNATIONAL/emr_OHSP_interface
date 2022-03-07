@@ -95,7 +95,6 @@ module EmrOhspInterface
            response = send_data(collection,"weekly")
           end
           
-        generate_notifiable_disease_conditions_report()  
         return collection
       end
 
@@ -525,22 +524,22 @@ module EmrOhspInterface
       end
 
       def send_data_to_sms_portal(data, concept_name_collection)
+        conn2 = settings["sms_server"]
         data = data.select {|k,v| v.select {|kk,vv| vv.length > 0}.length > 0}
         payload = {
-          "email"=> "admin@email.test",
-          "password" => "admin",
+          "email"=> conn2["user"],
+          "password" => conn2["pass"],
           "emr_facility_id" => Location.current_health_center.id,
           "emr_facility_name" => Location.current_health_center.name,
           "payload" => data,
           "concept_name_collection" => concept_name_collection
         }
       
-        url = "localhost:8186/submit"
-        puts url
+     
       
         begin
           response = RestClient::Request.execute(method: :post,
-            url: url,
+            url: conn2["url"],
             headers:{'Content-Type'=> 'application/json'},
             payload: payload.to_json
           )
