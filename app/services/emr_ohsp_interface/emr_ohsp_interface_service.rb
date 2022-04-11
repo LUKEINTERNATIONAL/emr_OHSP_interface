@@ -469,11 +469,11 @@ module EmrOhspInterface
           if !special.include?(key)
               option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
                           "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
-                          "value"=>value["<5yrs"].size }
+                          "value"=>value["<5yrs"].size } rescue {}
 
               option2 = {"dataElement"=>get_ohsp_de_ids(key,type)[1],
                           "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[3],
-                          "value"=>value[">=5yrs"].size}
+                          "value"=>value[">=5yrs"].size} rescue {}
 
             #fill data values array
               payload["dataValues"] << option1
@@ -483,25 +483,25 @@ module EmrOhspInterface
                 when special[0]
                   option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
                               "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
-                              "value"=>value["<5yrs"].size }
+                              "value"=>value["<5yrs"].size } rescue {}
 
                   payload["dataValues"] << option1
                 when special[1]
                   option2 = {"dataElement"=>get_ohsp_de_ids(key,type)[1],
                               "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[3],
-                              "value"=>value[">=5yrs"].size }
+                              "value"=>value[">=5yrs"].size } rescue {}
 
                   payload["dataValues"] << option2
                 when special[2]
                   option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
                               "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
-                              "value"=>value["<5yrs"].size }
+                              "value"=>value["<5yrs"].size } rescue {}
 
                   payload["dataValues"] << option1
                 when special[3]
                   option1 =  {"dataElement"=>get_ohsp_de_ids(key,type)[1],
                               "categoryOptionCombo"=> get_ohsp_de_ids(key,type)[2],
-                              "value"=>value["<5yrs"].size}
+                              "value"=>value["<5yrs"].size} rescue {}
 
                   payload["dataValues"] << option1
               end
