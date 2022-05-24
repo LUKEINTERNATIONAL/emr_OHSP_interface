@@ -267,7 +267,10 @@ module EmrOhspInterface
     
         special_indicators = ["Malaria - new cases (under 5)",
           "Malaria - new cases (5 & over)",
-          "HIV confirmed positive (15-49 years) new cases"
+          "HIV confirmed positive (15-49 years) new cases",
+          "Diarrhoea non - bloody -new cases (under5)",
+          "Malnutrition - new case (under 5)",
+          "Acute respiratory infections - new cases (U5)"
         ]
     
         diag_map.each do |key,value|
@@ -317,7 +320,6 @@ module EmrOhspInterface
               options["ids"] = under_five
     
               collection[key] = options
-    
             end
     
             if key.eql?("Malaria - new cases (5 & over)")
@@ -352,9 +354,223 @@ module EmrOhspInterface
     
               collection[key] = options
             end
+
+            if key.eql?("Diarrhoea non - bloody -new cases (under5)")
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*')
+    
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5 }.\
+                            collect{|record| record["person_id"]}
+    
+              options["ids"] = under_five
+
+              collection[key] = options
+            end
+
+            if key.eql?("Malnutrition - new case (under 5)")
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*')
+    
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5 }.\
+                            collect{|record| record["person_id"]}
+    
+              options["ids"] = under_five
+
+              collection[key] = options
+            end
+
+            if key.eql?("Acute respiratory infections - new cases (U5)")
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IN (?)
+              AND concept_id IN(6543, 6542)',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, obs.value_coded, p.*')
+    
+              under_five = data.select{|record| calculate_age(record["birthdate"]) < 5 }.\
+                            collect{|record| record["person_id"]}
+    
+              options["ids"] = under_five
+
+              collection[key] = options
+            end
+
         end
         end
          collection
+      end
+
+      def disaggregate(disaggregate_key, concept_ids, start_date, end_date, type)
+        options = {"ids"=>nil}
+        data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+        AND encounter_type = ? AND value_coded IN (?)
+        AND concept_id IN(6543, 6542)',
+        start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+        end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+        joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+        INNER JOIN person p ON p.person_id = encounter.patient_id').\
+        select('encounter.encounter_type, obs.value_coded, p.*')
+
+        if disaggregate_key == "less"
+        options["ids"] = data.select{|record| calculate_age(record["birthdate"]) < 5 }.\
+        collect{|record| record["person_id"]}
+        else 
+          if disaggregate_key == "greater"
+            options["ids"] = data.select{|record| calculate_age(record["birthdate"]) >= 5 }.\
+            collect{|record| record["person_id"]}
+          end
+        end
+
+        options
+      end
+
+      def generate_hmis_17_report(start_date=nil,end_date=nil)
+
+        diag_map = settings["hmis_17_map"]
+    
+        #pull the data
+        type = EncounterType.find_by_name 'Outpatient diagnosis'
+        collection = {}
+    
+        special_indicators = [
+          "Referals from other institutions",
+          "OPD total attendance",
+          "Referal to other institutions",
+          "Malaria 5 years and older - new"
+        ]
+
+        special_under_five_indicators = [
+          "Measles under five years - new",
+          "Pneumonia under 5 years- new",
+          "Dysentery under 5 years - new",
+          "Diarrhoea non - bloody -new cases (under5)",
+          "Malaria under 5 years - new"
+        ]
+
+        diag_map.each do |key,value|
+          options = {"ids"=>nil}
+          concept_ids = ConceptName.where(name: value).collect{|cn| cn.concept_id}
+    
+          if !special_indicators.include?(key) && !special_under_five_indicators.include?(key)
+            data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+            AND encounter_type = ? AND value_coded IN (?)
+            AND concept_id IN(6543, 6542)',
+            start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+            end_date.to_date.strftime('%Y-%m-%d 23:59:59'),type.id,concept_ids).\
+            joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+            INNER JOIN person p ON p.person_id = encounter.patient_id').\
+            select('encounter.encounter_type, obs.value_coded, p.*')
+    
+            all = data.collect{|record| record.person_id}
+    
+    
+            options["ids"] = all
+    
+            collection[key] = options
+          else
+            if key.eql?("Referals from other institutions") 
+              _type = EncounterType.find_by_name 'PATIENT REGISTRATION'
+              visit_type = ConceptName.find_by_name 'Type of visit'
+      
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IS NOT NULL
+              AND obs.concept_id = ?', start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),_type.id, visit_type.concept_id).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id
+              INNER JOIN concept_name c ON c.concept_id = 6541').\
+              select('encounter.encounter_type, obs.value_coded, obs.obs_datetime, p.*, c.name visit_type').\
+              group('p.person_id, encounter.encounter_id')
+
+              all = data.collect{|record| record.person_id}
+    
+              options["ids"] = all
+      
+              collection[key] = options
+            end
+
+            if key.eql?("OPD total attendance")
+              _type = EncounterType.find_by_name 'PATIENT REGISTRATION'
+              visit_type = ConceptName.find_by_name 'Type of visit'
+       
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
+              AND encounter_type = ? AND value_coded IS NOT NULL
+              AND obs.concept_id = ?', start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),_type.id, visit_type.concept_id).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
+              INNER JOIN person p ON p.person_id = encounter.patient_id
+              INNER JOIN concept_name c ON c.concept_id = obs.value_coded
+              LEFT JOIN person_name n ON n.person_id = encounter.patient_id AND n.voided = 0
+              RIGHT JOIN person_address a ON a.person_id = encounter.patient_id').\
+              select('encounter.encounter_type, n.family_name, n.given_name,
+              obs.value_coded, obs.obs_datetime, p.*, c.name visit_type,
+              a.state_province district, a.township_division ta, a.city_village village').\
+              order('n.date_created DESC').group('n.person_id, encounter.encounter_id')
+
+              all = data.collect{|record| record.person_id}
+    
+              options["ids"] = all
+      
+              collection[key] = options
+            end
+
+            if key.eql?("Referal to other institutions")
+              data = Encounter.where('encounter_datetime BETWEEN ? AND ? AND encounter_type = ?',
+              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),114).\
+              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id').\
+              select('*')
+
+              all = data.collect{|record| record.person_id}
+
+              options["ids"] = all
+      
+              collection[key] = options
+            end
+
+            if key.eql?("Measles under five years - new")
+              collection[key] = disaggregate('less',concept_ids, start_date, end_date, type)
+            end
+
+            if key.eql?("Pneumonia under 5 years- new")
+              collection[key] = disaggregate('less', concept_ids, start_date, end_date, type)
+            end
+
+            if key.eql?("Malaria under 5 years - new")
+              collection[key] = disaggregate('less', concept_ids, start_date, end_date, type)
+            end
+
+            if key.eql?("Malaria 5 years and older - new")
+              collection[key] = disaggregate('greater',concept_ids, start_date, end_date, type)
+            end
+
+            if key.eql?("Dysentery under 5 years - new")
+              collection[key] = disaggregate('less', concept_ids, start_date, end_date, type)
+            end
+
+            if key.eql?("Diarrhoea non - bloody -new cases (under5)")
+              collection[key] = disaggregate('less', concept_ids, start_date, end_date, type)
+            end
+
+          end
+        end
+
+        collection
+
       end
 
       def generate_notifiable_disease_conditions_report(start_date=nil,end_date=nil)
