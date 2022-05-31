@@ -529,11 +529,11 @@ module EmrOhspInterface
             end
 
             if key.eql?("Referal to other institutions")
-              data = Encounter.where('encounter_datetime BETWEEN ? AND ? AND encounter_type = ?',
-              start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
-              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),114).\
-              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id').\
-              select('*')
+              data = Observation.where("obs_datetime BETWEEN ? AND ?
+              AND concept_id = ?",start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
+              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),'7414').\
+              joins('LEFT JOIN location l ON l.location_id = obs.value_text').\
+              select('obs.person_id').order('obs_datetime DESC')
 
               all = data.collect{|record| record.person_id}
 
