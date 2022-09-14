@@ -450,7 +450,8 @@ module EmrOhspInterface
           "Referals from other institutions",
           "OPD total attendance",
           "Referal to other institutions",
-          "Malaria 5 years and older - new"
+          "Malaria 5 years and older - new",
+          "HIV/AIDS - new"
         ]
 
         special_under_five_indicators = [
@@ -520,11 +521,8 @@ module EmrOhspInterface
               obs.value_coded, obs.obs_datetime, p.*, c.name visit_type,
               a.state_province district, a.township_division ta, a.city_village village').\
               order('n.date_created DESC').group('n.person_id, encounter.encounter_id')
-
               all = data.collect{|record| record.person_id}
-    
               options["ids"] = all
-      
               collection[key] = options
             end
 
@@ -534,11 +532,19 @@ module EmrOhspInterface
               end_date.to_date.strftime('%Y-%m-%d 23:59:59'),'7414').\
               joins('LEFT JOIN location l ON l.location_id = obs.value_text').\
               select('obs.person_id').order('obs_datetime DESC')
-
               all = data.collect{|record| record.person_id}
-
               options["ids"] = all
-      
+              collection[key] = options
+            end
+
+            if key.eql?("HIV/AIDS - new")
+              data =  ActiveRecord::Base.connection.select_all(
+                "SELECT * FROM temp_earliest_start_date
+                WHERE date_enrolled BETWEEN '#{start_date}' AND '#{end_date}'
+                AND date_enrolled = earliest_start_date
+                GROUP BY patient_id" ).to_hash
+              all = data.collect{|record| record["patient_id"]}
+              options["ids"] = all
               collection[key] = options
             end
 
