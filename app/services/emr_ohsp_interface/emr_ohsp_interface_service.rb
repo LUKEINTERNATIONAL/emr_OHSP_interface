@@ -505,24 +505,18 @@ module EmrOhspInterface
             end
 
             if key.eql?("OPD total attendance")
-              _type = EncounterType.find_by_name 'PATIENT REGISTRATION'
-              visit_type = ConceptName.find_by_name 'Type of visit'
-       
-              data = Encounter.where('encounter_datetime BETWEEN ? AND ?
-              AND encounter_type = ? AND value_coded IS NOT NULL
-              AND obs.concept_id = ?', start_date.to_date.strftime('%Y-%m-%d 00:00:00'),
-              end_date.to_date.strftime('%Y-%m-%d 23:59:59'),_type.id, visit_type.concept_id).\
-              joins('INNER JOIN obs ON obs.encounter_id = encounter.encounter_id
-              INNER JOIN person p ON p.person_id = encounter.patient_id
-              INNER JOIN concept_name c ON c.concept_id = obs.value_coded
-              LEFT JOIN person_name n ON n.person_id = encounter.patient_id AND n.voided = 0
-              RIGHT JOIN person_address a ON a.person_id = encounter.patient_id').\
-              select('encounter.encounter_type, n.family_name, n.given_name,
-              obs.value_coded, obs.obs_datetime, p.*, c.name visit_type,
-              a.state_province district, a.township_division ta, a.city_village village').\
-              order('n.date_created DESC').group('n.person_id, encounter.encounter_id')
-              all = data.collect{|record| record.person_id}
-              options["ids"] = all
+              programID = Program.find_by_name 'OPD Program'
+              data = Encounter.find_by_sql(
+                "SELECT patient_id, DATE_FORMAT(encounter_datetime,'%Y-%m-%d') enc_date
+                FROM encounter e
+                LEFT OUTER JOIN person p ON p.person_id = e.patient_id
+                WHERE e.voided = 0 AND encounter_datetime BETWEEN '" + start_date.to_date.strftime('%Y-%m-%d 00:00:00') +"'
+                  AND '" + end_date.to_date.strftime('%Y-%m-%d 23:59:59') + "'
+                  AND program_id ='" + programID.program_id.to_s + "'
+                GROUP BY enc_date"
+              ).map{|e| e. patient_id}
+        
+              options["ids"] = data
               collection[key] = options
             end
 
