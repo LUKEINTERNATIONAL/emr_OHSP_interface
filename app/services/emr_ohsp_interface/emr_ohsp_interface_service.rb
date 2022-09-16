@@ -129,11 +129,11 @@ module EmrOhspInterface
 
               #under_five
               under_five = data.select{|record| calculate_age(record["birthdate"]) < 5}.\
-                          collect{|record| record.person_id}
+                          collect{|record| record.person_id}.uniq
               options["<5yrs"] = under_five
               #above 5 years
               over_five = data.select{|record| calculate_age(record["birthdate"]) >=5 }.\
-                          collect{|record| record.person_id}
+                          collect{|record| record.person_id}.uniq
 
               options[">=5yrs"] =  over_five
 
