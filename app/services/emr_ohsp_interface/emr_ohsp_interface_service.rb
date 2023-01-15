@@ -11,6 +11,10 @@ module EmrOhspInterface
         config = JSON.parse(file)
       end
 
+      def server_config
+        config =YAML.load_file("#{Rails.root}/config/application.yml")
+      end
+
       def get_ohsp_facility_id
         file = File.open(Rails.root.join("db","idsr_metadata","emr_ohsp_facility_map.csv"))
         data = CSV.parse(file,headers: true)
@@ -632,7 +636,7 @@ module EmrOhspInterface
       def weeks_generator
 
         weeks = Hash.new
-        first_day = ((Date.today.year.to_s)+"-01-01").to_date
+        first_day = (Date.today - (11).month).at_beginning_of_month
         wk_of_first_day = first_day.cweek
 
         if wk_of_first_day > 1
@@ -671,7 +675,7 @@ module EmrOhspInterface
       def send_data(data,type)
         # method used to post data to the server
         #prepare payload here
-        conn = settings["headers"]
+        conn = server_config['ohsp']
         payload = {
           "dataSet" =>get_data_set_id(type),
           "period"=>(type.eql?("weekly") ? weeks_generator.last[0] : months_generator.first[0]),
@@ -733,18 +737,18 @@ module EmrOhspInterface
                                             headers:{'Content-Type'=> 'application/json'},
                                             payload: payload.to_json,
                                             #headers: {accept: :json},
-                                            user: conn["user"],
-                                            password: conn["pass"])
+                                            user: conn["username"],
+                                            password: conn["password"])
 
         puts send
       end
 
       def send_data_to_sms_portal(data, concept_name_collection)
-        conn2 = settings["sms_server"]
+        conn2 = server_config['idsr_sms']
         data = data.select {|k,v| v.select {|kk,vv| vv.length > 0}.length > 0}
         payload = {
-          "email"=> conn2["user"],
-          "password" => conn2["pass"],
+          "email"=> conn2["username"],
+          "password" => conn2["password"],
           "emr_facility_id" => Location.current_health_center.id,
           "emr_facility_name" => Location.current_health_center.name,
           "payload" => data,

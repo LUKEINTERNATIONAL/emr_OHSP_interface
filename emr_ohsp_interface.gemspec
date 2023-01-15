@@ -27,4 +27,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 3.0"
   spec.add_development_dependency "rest-client","~> 1"
   spec.add_development_dependency "mysql2", "~> 0"
+  spec.add_development_dependency "sqlite3", ">= 1.3.6", "~> 1.3"
 end
