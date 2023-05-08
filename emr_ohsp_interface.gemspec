@@ -7,7 +7,7 @@ require "emr_ohsp_interface/version"
 Gem::Specification.new do |spec|
   spec.name        = "emr_ohsp_interface"
   spec.version     = EmrOhspInterface::VERSION
-  spec.authors     = ["Justin Manda, Petros Kayange, and Dominic Kasanga"]
+  spec.authors     = ["Justin Manda, Petros Kayange, Dominic Kasanga"]
   spec.email       = ["justinmandah@gmail.com, kayangepetros@gmail.com, dominickasanga@gmail.com"]
   spec.homepage    = "https://github.com/LUKEINTERNATIONAL/emr_OHSP_interface"
   spec.summary     = "This in a gem that facilitates interfacing of EMR, One Health Surveillance Platform and Lims" 
