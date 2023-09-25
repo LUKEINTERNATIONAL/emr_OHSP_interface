@@ -502,7 +502,7 @@ module EmrOhspInterface
       def registration_report(start_date=nil,end_date=nil)
         ActiveRecord::Base.connection.select_all <<~SQL
         SELECT
-          c.name AS visit_type,
+        MIN(IFNULL(c.name, 'Unidentified')) AS visit_type,
           obs.person_id
           FROM `encounter`
           LEFT JOIN obs ON obs.encounter_id = encounter.encounter_id AND obs.voided = 0
