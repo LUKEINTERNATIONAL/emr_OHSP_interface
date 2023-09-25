@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    emr_ohsp_interface (1.2.1)
+    emr_ohsp_interface (1.2.2)
       rails (~> 5.2.4, >= 5.2.4.3)
 
 GEM
@@ -52,8 +52,8 @@ GEM
     builder (3.2.4)
     concurrent-ruby (1.2.2)
     crass (1.0.6)
-    date (3.3.3)
     diff-lcs (1.5.0)
+    digest (3.1.1)
     domain_name (0.5.20190701)
       unf (>= 0.0.5, < 1.0.0)
     erubi (1.12.0)
@@ -63,6 +63,7 @@ GEM
       domain_name (~> 0.5)
     i18n (1.14.1)
       concurrent-ruby (~> 1.0)
+    io-wait (0.3.0)
     loofah (2.21.3)
       crass (~> 1.0.2)
       nokogiri (>= 1.12.0)
@@ -74,23 +75,27 @@ GEM
     marcel (1.0.2)
     method_source (1.0.0)
     mime-types (2.99.3)
-    mini_mime (1.1.5)
-    mini_portile2 (2.8.4)
-    minitest (5.19.0)
+    mini_mime (1.1.2)
+    mini_portile2 (2.6.1)
+    minitest (5.15.0)
     mysql2 (0.5.5)
-    net-imap (0.3.7)
-      date
+    net-imap (0.2.2)
+      digest
       net-protocol
+      strscan
     net-pop (0.1.2)
       net-protocol
-    net-protocol (0.2.1)
+    net-protocol (0.1.2)
+      io-wait
       timeout
-    net-smtp (0.3.3)
+    net-smtp (0.3.0)
+      digest
       net-protocol
+      timeout
     netrc (0.11.0)
     nio4r (2.5.9)
-    nokogiri (1.13.10)
-      mini_portile2 (~> 2.8.0)
+    nokogiri (1.12.5)
+      mini_portile2 (~> 2.6.1)
       racc (~> 1.4)
     racc (1.7.1)
     rack (2.2.8)
@@ -139,13 +144,14 @@ GEM
       diff-lcs (>= 1.2.0, < 2.0)
       rspec-support (~> 3.12.0)
     rspec-support (3.12.1)
-    sprockets (4.2.0)
+    sprockets (4.2.1)
       concurrent-ruby (~> 1.0)
       rack (>= 2.2.4, < 4)
     sprockets-rails (3.4.2)
       actionpack (>= 5.2)
       activesupport (>= 5.2)
       sprockets (>= 3.0.0)
+    strscan (3.0.6)
     thor (1.2.2)
     thread_safe (0.3.6)
     timeout (0.4.0)
