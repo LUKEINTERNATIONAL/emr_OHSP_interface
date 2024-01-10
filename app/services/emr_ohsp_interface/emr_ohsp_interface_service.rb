@@ -467,7 +467,7 @@ module EmrOhspInterface
         data =Observation.where("obs_datetime BETWEEN ? AND ? AND c.voided = ? AND obs.concept_id IN (?) ",
           start_date.to_date.strftime('%Y-%m-%d 00:00:00'), end_date.to_date.strftime('%Y-%m-%d 23:59:59'),0, [6543, 6542]).\
           joins('INNER JOIN concept_name c ON c.concept_id = obs.value_coded
-          INNER JOIN person p ON p.person_id = obs.person_id').\
+          INNER JOIN person p ON p.person_id = obs.person_id').group(["obs.person_id","c.name","DATE(obs_datetime)"]).\
           pluck("c.name, CASE WHEN  (SELECT timestampdiff(year, birthdate, '#{end_date.to_date.strftime('%Y-%m-%d')}')) >= 5 THEN 'more_than_5' 
           ELSE 'less_than_5' END AS age_group,p.person_id").group_by(&:shift)
 
@@ -478,7 +478,7 @@ module EmrOhspInterface
             else
               if key.eql?("Referals from other institutions")
                 reg_data = reg_data.rows.group_by(&:shift)
-                collection[key]["ids"]= reg_data['Referral'].flatten
+                collection[key]["ids"]= reg_data['Referral']&.flatten || []
               end
             end
             data.each do |phrase, counts|
