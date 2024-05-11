@@ -170,7 +170,7 @@ module EmrOhspInterface
                         "SELECT * FROM temp_earliest_start_date
                             WHERE date_enrolled BETWEEN '#{start_date}' AND '#{end_date}'
                             AND date_enrolled = earliest_start_date
-                             GROUP BY patient_id" ).to_hash
+                             GROUP BY patient_id" )
 
               under_five = data.select{|record| calculate_age(record["birthdate"]) < 5 }.\
                              collect{|record| record["patient_id"]}
@@ -349,7 +349,7 @@ module EmrOhspInterface
                 "SELECT * FROM temp_earliest_start_date
                   WHERE date_enrolled BETWEEN '#{start_date}' AND '#{end_date}'
                   AND date_enrolled = earliest_start_date
-                  GROUP BY patient_id" ).to_hash
+                  GROUP BY patient_id" )
     
               over_and_15_49 = data.select{|record| calculate_age(record["birthdate"])  >= 15 && calculate_age(record["birthdate"]) <=49 }.\
                      collect{|record| record["patient_id"]}
@@ -464,12 +464,12 @@ module EmrOhspInterface
         
         reg_data = registration_report(start_date,end_date)
        
-        data =Observation.where("obs_datetime BETWEEN ? AND ? AND c.voided = ? AND obs.concept_id IN (?) ",
-          start_date.to_date.strftime('%Y-%m-%d 00:00:00'), end_date.to_date.strftime('%Y-%m-%d 23:59:59'),0, [6543, 6542]).\
-          joins('INNER JOIN concept_name c ON c.concept_id = obs.value_coded
-          INNER JOIN person p ON p.person_id = obs.person_id').\
-          pluck("c.name, CASE WHEN  (SELECT timestampdiff(year, birthdate, '#{end_date.to_date.strftime('%Y-%m-%d')}')) >= 5 THEN 'more_than_5' 
-          ELSE 'less_than_5' END AS age_group,p.person_id").group_by(&:shift)
+        data =Observation.where(Arel.sql("obs_datetime BETWEEN '#{start_date.to_date.strftime('%Y-%m-%d 00:00:00')}' AND '#{end_date.to_date.strftime('%Y-%m-%d 23:59:59')}' AND c.voided = 0 AND obs.concept_id IN (6543, 6542) "))\
+                          .joins(Arel.sql('INNER JOIN concept_name c ON c.concept_id = obs.value_coded
+          INNER JOIN person p ON p.person_id = obs.person_id'))\
+                          .pluck(Arel.sql("c.name, CASE WHEN  (SELECT timestampdiff(year, birthdate, '#{end_date.to_date.strftime('%Y-%m-%d')}')) >= 5 THEN 'more_than_5'
+          ELSE 'less_than_5' END AS age_group,p.person_id")).group_by(&:shift)
+
 
           diag_map.each do |key, value|
             collection[key] = { "ids" => [] }
@@ -478,7 +478,7 @@ module EmrOhspInterface
             else
               if key.eql?("Referals from other institutions")
                 reg_data = reg_data.rows.group_by(&:shift)
-                collection[key]["ids"]= reg_data['Referral'].flatten
+                collection[key]["ids"]= reg_data['Referral'] ? reg_data['Referral'].flatten : []
               end
             end
             data.each do |phrase, counts|
