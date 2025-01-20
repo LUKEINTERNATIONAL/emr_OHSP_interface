@@ -170,7 +170,7 @@ module EmrOhspInterface
                         "SELECT * FROM temp_earliest_start_date
                             WHERE date_enrolled BETWEEN '#{start_date}' AND '#{end_date}'
                             AND date_enrolled = earliest_start_date
-                             GROUP BY patient_id" ).to_hash
+                             GROUP BY patient_id" )
 
               under_five = data.select{|record| calculate_age(record["birthdate"]) < 5 }.\
                              collect{|record| record["patient_id"]}
@@ -349,7 +349,7 @@ module EmrOhspInterface
                 "SELECT * FROM temp_earliest_start_date
                   WHERE date_enrolled BETWEEN '#{start_date}' AND '#{end_date}'
                   AND date_enrolled = earliest_start_date
-                  GROUP BY patient_id" ).to_hash
+                  GROUP BY patient_id" )
     
               over_and_15_49 = data.select{|record| calculate_age(record["birthdate"])  >= 15 && calculate_age(record["birthdate"]) <=49 }.\
                      collect{|record| record["patient_id"]}
@@ -540,7 +540,7 @@ module EmrOhspInterface
                 "SELECT * FROM temp_earliest_start_date
                 WHERE date_enrolled BETWEEN '#{start_date}' AND '#{end_date}'
                 AND date_enrolled = earliest_start_date
-                GROUP BY patient_id" ).to_hash
+                GROUP BY patient_id" )
               all = data.collect{|record| record["patient_id"]}
               options["ids"] = all
               collection[key] = options
