@@ -6,6 +6,8 @@ module EmrOhspInterface
       require 'csv'
       require 'rest-client'
       require 'json'
+      include EmrOhspInterface::Utils
+
       def settings
         file = File.read(Rails.root.join("db","idsr_metadata","idsr_ohsp_settings.json"))
         config = JSON.parse(file)
@@ -100,6 +102,107 @@ module EmrOhspInterface
           end
           
         return collection
+      end
+
+      def generate_quarterly_idsr_report(request=nil,start_date=nil,end_date=nil)
+        epi_month = quarters_generator.first.first.strip
+        start_date = quarters_generator.first.last[1].split("to").first.strip if start_date.nil?
+        end_date =  quarters_generator.first.last[1].split("to").last.strip if end_date.nil?
+        indicators = [
+          'Diabetes Mellitus',
+          'Cervical Cancer',
+          'Hypertension',
+          'Onchocerciasis',
+          'Trachoma',
+          'Lymphatic Filariasis',
+          'Tuberculosis',
+          'Trypanosomiasis',
+          'Epilepsy',
+          'Depression',
+          'Suicide',
+          'Psychosis'
+        ]
+
+        diagnosis_concepts = ['Primary Diagnosis','Secondary Diagnosis']
+        encounters = ['OUTPATIENT DIAGNOSIS','ADMISSION DIAGNOSIS']
+
+        report_struct = indicators.each_with_object({}) do |indicator, report|
+          report[indicator] = ['<5 yrs','>=5 yrs'].each_with_object({}) do |group, sub_report|
+            sub_report[group] = {
+              outpatient_cases: [],
+              inpatient_cases: [],
+              inpatient_cases_death: [],
+              tested_malaria: [],
+              tested_positive_malaria: []
+            }
+          end
+        end
+
+        admitted_patient_died = Proc.new do |patient|
+          visit_type = patient['visit_type']
+          dead = patient['dead']
+
+          visit_type == 'ADMISSION DIAGNOSIS' && dead
+        end
+
+
+        diagonised = ActiveRecord::Base.connection.select_all <<~SQL
+          SELECT
+            e.patient_id,
+            p.birthdate,
+            d.name diagnosis,
+            et.name visit_type
+          FROM
+            encounter e
+          INNER JOIN
+            obs ON obs.encounter_id = e.encounter_id
+          INNER JOIN
+            person p ON p.person_id = e.patient_id
+          INNER JOIN concept_name d ON d.concept_id = obs.value_coded
+          INNER JOIN 
+            encounter_type et ON et.encounter_type_id = e.encounter_type
+          WHERE
+            e.encounter_type IN (#{EncounterType.where(name: encounters).pluck(:encounter_type_id).join(',')})
+            AND DATE(e.encounter_datetime) > '#{start_date}'
+            AND DATE(e.encounter_datetime) < '#{end_date}'
+            AND obs.concept_id IN (#{ConceptName.where(name: diagnosis_concepts).pluck(:concept_id).join(',')})
+            AND obs.value_coded IN (#{ConceptName.where(name: indicators).pluck(:concept_id).join(',')})
+          GROUP BY
+            p.person_id
+        SQL
+
+        malaria_tests = lab_results(test_types: ['Malaria Screening'], start_date: start_date, end_date: end_date)
+
+        tested_patient_ids = malaria_tests.map{|patient| patient['patient_id']}
+
+        tested_positive = Proc.new do |patient|
+          patient_id = patient['patient_id']
+          return false unless tested_patient_ids.include?(patient_id)
+
+          results = malaria_tests.find{|test| test['patient_id'] == patient_id}['results']
+          ['positive', 'parasites seen'].include?(results)
+        end
+
+        diagonised.each do |patient|
+          diagnosis = patient['diagnosis']
+          visit_type = patient['visit_type']
+          patient_id = patient['patient_id']
+          birthdate = patient['birthdate']
+
+          five_plus = '>=5 yrs'
+          less_than_5 = '<5 yrs'
+
+          age_group = birthdate > 5.years.ago ? less_than_5 : five_plus
+          
+          report_struct[diagnosis][age_group][:outpatient_cases] << patient_id if visit_type == 'OUTPATIENT DIAGNOSIS'
+          report_struct[diagnosis][age_group][:inpatient_cases] << patient_id if visit_type == 'ADMISSION DIAGNOSIS'
+          report_struct[diagnosis][age_group][:tested_malaria] << patient_id if tested_patient_ids.include?(patient_id)
+          report_struct[diagnosis][age_group][:tested_positive_malaria] << patient_id if tested_positive.call(patient)
+          report_struct[diagnosis][age_group][:inpatient_cases_death] << patient_id if admitted_patient_died.call(patient)
+        end
+        
+        report_struct
+          
       end
 
       #idsr monthly report
@@ -630,6 +733,25 @@ module EmrOhspInterface
               count +=  1
           end
           return months.to_a
+      end
+
+      def quarters_generator
+        quarters = Hash.new
+
+        to_quarter = Proc.new do |date|
+          ((date.month - 1) / 3) + 1
+        end
+
+        init_quarter = Date.today.beginning_of_year - 2.years
+
+        while init_quarter <= Date.today do
+          quarter = init_quarter.strftime("%Y")+" Q"+to_quarter.call(init_quarter).to_s
+          dates = "#{(init_quarter.beginning_of_quarter).to_s} to #{(init_quarter.end_of_quarter).to_s}"
+          quarters[quarter] = dates
+          init_quarter = init_quarter + 3.months
+        end
+
+        return quarters.to_a
       end
 
       # helper menthod
